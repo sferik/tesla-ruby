@@ -1,0 +1,34 @@
+{
+  "response": {
+    "congestion_sync_time_utc_secs": 1604976488,
+    "destination_charging": [
+      {
+        "location": {"lat": 34.010854, "long": -84.574979},
+        "name": "Hilton Garden Inn Atlanta NW/Kennesaw Town Center",
+        "type": "destination",
+        "distance_miles": 6.430447
+      }
+    ],
+    "superchargers": [
+      {
+        "location": {"lat": 33.848756, "long": -84.36434},
+        "name": "Atlanta, GA - Peachtree Road",
+        "type": "supercharger",
+        "distance_miles": 10.868304,
+        "available_stalls": 4,
+        "total_stalls": 5,
+        "site_closed": false
+      },
+      {
+        "location": {"lat": 33.846487, "long": -84.360172},
+        "name": "Atlanta, GA - Lenox Road",
+        "type": "supercharger",
+        "distance_miles": 11.131691,
+        "available_stalls": 16,
+        "total_stalls": 16,
+        "site_closed": false
+      }
+    ],
+    "timestamp": 1604976489279
+  }
+}

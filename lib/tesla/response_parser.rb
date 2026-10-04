@@ -1,0 +1,92 @@
+# frozen_string_literal: true
+
+require "net/http"
+require_relative "errors/bad_gateway"
+require_relative "errors/bad_request"
+require_relative "errors/client_error"
+require_relative "errors/device_unexpected_response"
+require_relative "errors/forbidden"
+require_relative "errors/gateway_timeout"
+require_relative "errors/http_error"
+require_relative "errors/internal_server_error"
+require_relative "errors/locked"
+require_relative "errors/method_not_allowed"
+require_relative "errors/misdirected_request"
+require_relative "errors/not_acceptable"
+require_relative "errors/not_found"
+require_relative "errors/payment_required"
+require_relative "errors/precondition_failed"
+require_relative "errors/request_timeout"
+require_relative "errors/server_error"
+require_relative "errors/service_unavailable"
+require_relative "errors/too_many_requests"
+require_relative "errors/unauthorized"
+require_relative "errors/unavailable_for_legal_reasons"
+require_relative "errors/unprocessable_content"
+
+module Tesla
+  # Parses HTTP responses from the Tesla Fleet API
+  # @api private
+  class ResponseParser
+    # Mapping of HTTP status codes to error classes
+    ERROR_MAP = {
+      400 => BadRequest,
+      401 => Unauthorized,
+      402 => PaymentRequired,
+      403 => Forbidden,
+      404 => NotFound,
+      405 => MethodNotAllowed,
+      406 => NotAcceptable,
+      408 => RequestTimeout,
+      412 => PreconditionFailed,
+      421 => MisdirectedRequest,
+      422 => UnprocessableContent,
+      423 => Locked,
+      429 => TooManyRequests,
+      451 => UnavailableForLegalReasons,
+      500 => InternalServerError,
+      502 => BadGateway,
+      503 => ServiceUnavailable,
+      504 => GatewayTimeout,
+      540 => DeviceUnexpectedResponse
+    }.freeze
+
+    # The error classes for the 4xx and 5xx statuses ERROR_MAP does not name
+    STATUS_CLASS_ERRORS = {4 => ClientError, 5 => ServerError}.freeze
+    private_constant :ERROR_MAP, :STATUS_CLASS_ERRORS
+
+    # Parse an HTTP response
+    #
+    # @api private
+    # @param response [Net::HTTPResponse] the HTTP response to parse
+    # @return [String] the response body
+    # @raise [HTTPError] if the response is not successful
+    # @example Parse a response
+    #   parser.parse(response: response)
+    def parse(response:)
+      raise error(response) unless response.is_a?(Net::HTTPSuccess)
+
+      response.body.to_s
+    end
+
+    private
+
+    # Create an error from a response
+    # @api private
+    # @param response [Net::HTTPResponse] the HTTP response
+    # @return [HTTPError] the error
+    def error(response)
+      error_class(response).new(response:)
+    end
+
+    # Get the error class for a response
+    # @api private
+    # @param response [Net::HTTPResponse] the HTTP response
+    # @return [Class] the error class: the one named for the status, else ClientError or ServerError for its class of
+    #   status, else HTTPError
+    def error_class(response)
+      status = Integer(response.code)
+      ERROR_MAP.fetch(status) { STATUS_CLASS_ERRORS.fetch(status / 100, HTTPError) }
+    end
+  end
+end

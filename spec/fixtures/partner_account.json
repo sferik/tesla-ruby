@@ -1,0 +1,8 @@
+{
+  "response": {
+    "client_id": "TEST_CLIENT_ID",
+    "name": "Example",
+    "domain": "example.com",
+    "public_key": "0437d832a7a695151f5a671780a276aa4cf2d6be3b2786465397612a342fcf418e98022d3cedf4e9a6f4b3b160472dee4ca022383d9b4cc4001a0f3023caec58fa"
+  }
+}
