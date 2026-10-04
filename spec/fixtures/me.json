@@ -1,0 +1,7 @@
+{
+  "response": {
+    "email": "nikola@example.com",
+    "full_name": "Nikola Tesla",
+    "profile_image_url": "https://example.com/nikola.jpg"
+  }
+}

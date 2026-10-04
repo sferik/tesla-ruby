@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+RSpec.describe Tesla::Authenticator do
+  subject(:authenticator) { described_class.new }
+
+  describe "#header" do
+    it "returns no headers" do
+      expect(authenticator.header(Net::HTTP::Get.new("/"))).to eq({})
+    end
+  end
+
+  describe "#inspect" do
+    it "shows the class" do
+      expect(authenticator.inspect).to eq("#<Tesla::Authenticator>")
+    end
+  end
+end

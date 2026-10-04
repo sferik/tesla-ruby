@@ -1,0 +1,989 @@
+module Tesla
+  VERSION: String
+
+  type vehicle_identifier = String | Integer | Vehicle
+  type request_body = Hash[Symbol | String, untyped] | Array[untyped] | String
+  type scope = Array[String] | String
+
+  interface _TokenRefresh
+    def call: (SimpleOAuth::OAuth2::Token token) -> untyped
+  end
+
+  extend Configuration
+  extend SingleForwardable
+
+  private def self.def_delegator: (interned accessor, Symbol method, ?Symbol ali) -> void
+  private def self.def_delegators: (interned accessor, *Symbol methods) -> void
+  private def self.def_single_delegator: (interned accessor, Symbol method, ?Symbol ali) -> void
+  private def self.def_single_delegators: (interned accessor, *Symbol methods) -> void
+  private def self.delegate: (Hash[Symbol | Array[Symbol], Symbol] hash) -> void
+  private def self.single_delegate: (Hash[Symbol | Array[Symbol], Symbol] hash) -> void
+
+  self.@client: Client
+  self.@client_values: Array[untyped]?
+  self.@applied_values: Array[untyped]?
+
+  CLIENT_MUTEX: Thread::Mutex
+  CLIENT_SETTINGS: Array[Symbol]
+  APPLIED_SETTINGS: Array[Symbol]
+
+  def self.client: () -> Client
+  def self.reset: () -> self
+  private def self.rebuild_client: () -> Array[untyped]
+  private def self.values_of: (Array[Symbol] settings) -> Array[untyped]
+  private def self.apply_settings: () -> Array[untyped]
+
+  def self.new: (?host: String, ?access_token: String?, ?refresh_token: String?, ?client_id: String?, ?client_secret: String?, ?redirect_uri: String?, ?audience: String?, ?authorization_endpoint: String, ?token_endpoint: String, ?on_token_refresh: _TokenRefresh?, ?user_agent: String, ?open_timeout: Numeric, ?read_timeout: Numeric, ?write_timeout: Numeric, ?debug_output: IO?, ?proxy_url: String?, ?keep_alive_timeout: Numeric, ?max_redirects: Integer, ?ca_file: String?, ?max_retries: Integer, ?max_retry_delay: Numeric) -> Client
+              | [T] (?host: String, ?access_token: String?, ?refresh_token: String?, ?client_id: String?, ?client_secret: String?, ?redirect_uri: String?, ?audience: String?, ?authorization_endpoint: String, ?token_endpoint: String, ?on_token_refresh: _TokenRefresh?, ?user_agent: String, ?open_timeout: Numeric, ?read_timeout: Numeric, ?write_timeout: Numeric, ?debug_output: IO?, ?proxy_url: String?, ?keep_alive_timeout: Numeric, ?max_redirects: Integer, ?ca_file: String?, ?max_retries: Integer, ?max_retry_delay: Numeric) { (Client client) -> T } -> T
+  def self.command: (vehicle_identifier vehicle, String | Symbol name, **untyped params) -> true
+  def self.honk_horn: (vehicle_identifier vehicle) -> true
+  def self.flash_lights: (vehicle_identifier vehicle) -> true
+  def self.open_charge_port: (vehicle_identifier vehicle) -> true
+  def self.close_charge_port: (vehicle_identifier vehicle) -> true
+  def self.start_charging: (vehicle_identifier vehicle) -> true
+  def self.stop_charging: (vehicle_identifier vehicle) -> true
+  def self.set_charge_limit: (vehicle_identifier vehicle, Integer percent) -> true
+  def self.set_charging_amps: (vehicle_identifier vehicle, Integer amps) -> true
+  def self.charge_to_standard_range: (vehicle_identifier vehicle) -> true
+  def self.charge_to_max_range: (vehicle_identifier vehicle) -> true
+  def self.start_climate: (vehicle_identifier vehicle) -> true
+  def self.stop_climate: (vehicle_identifier vehicle) -> true
+  def self.set_temperature: (vehicle_identifier vehicle, Numeric driver, ?Numeric passenger) -> true
+  def self.set_max_defrost: (vehicle_identifier vehicle, on: bool) -> true
+  def self.set_seat_heater: (vehicle_identifier vehicle, Symbol | String seat, Integer level) -> true
+  def self.set_seat_cooler: (vehicle_identifier vehicle, Symbol | String seat, Integer level) -> true
+  def self.set_steering_wheel_heater: (vehicle_identifier vehicle, on: bool) -> true
+  def self.set_climate_keeper_mode: (vehicle_identifier vehicle, Symbol | String mode) -> true
+  def self.set_bioweapon_mode: (vehicle_identifier vehicle, on: bool, ?manual_override: bool) -> true
+  def self.set_cabin_overheat_protection: (vehicle_identifier vehicle, on: bool, ?fan_only: bool) -> true
+  def self.lock_doors: (vehicle_identifier vehicle) -> true
+  def self.unlock_doors: (vehicle_identifier vehicle) -> true
+  def self.actuate_trunk: (vehicle_identifier vehicle) -> true
+  def self.open_frunk: (vehicle_identifier vehicle) -> true
+  def self.vent_windows: (vehicle_identifier vehicle) -> true
+  def self.close_windows: (vehicle_identifier vehicle, ?latitude: Numeric, ?longitude: Numeric) -> true
+  def self.vent_sunroof: (vehicle_identifier vehicle) -> true
+  def self.close_sunroof: (vehicle_identifier vehicle) -> true
+  def self.trigger_homelink: (vehicle_identifier vehicle, latitude: Numeric, longitude: Numeric) -> true
+  def self.toggle_playback: (vehicle_identifier vehicle) -> true
+  def self.next_track: (vehicle_identifier vehicle) -> true
+  def self.previous_track: (vehicle_identifier vehicle) -> true
+  def self.next_favorite: (vehicle_identifier vehicle) -> true
+  def self.previous_favorite: (vehicle_identifier vehicle) -> true
+  def self.volume_up: (vehicle_identifier vehicle) -> true
+  def self.volume_down: (vehicle_identifier vehicle) -> true
+  def self.set_volume: (vehicle_identifier vehicle, Numeric volume) -> true
+  def self.navigate_to: (vehicle_identifier vehicle, String destination, ?locale: String) -> true
+  def self.navigate_to_coordinates: (vehicle_identifier vehicle, Numeric latitude, Numeric longitude, ?order: Integer) -> true
+  def self.authorization_url: (state: String, ?pkce: SimpleOAuth::OAuth2::PKCE?, ?scope: scope, **String? params) -> String
+  def self.exchange_code: (String code, ?code_verifier: String?) -> SimpleOAuth::OAuth2::Token
+  def self.refresh_access_token: () -> SimpleOAuth::OAuth2::Token
+  def self.partner_token: (?scope: scope) -> SimpleOAuth::OAuth2::Token
+  def self.register_partner: (String domain) -> Hash[String, untyped]
+  def self.partner_public_key: (String domain) -> String
+  def self.set_sentry_mode: (vehicle_identifier vehicle, on: bool) -> true
+  def self.set_valet_mode: (vehicle_identifier vehicle, on: bool, ?password: String?) -> true
+  def self.reset_valet_pin: (vehicle_identifier vehicle) -> true
+  def self.remote_start: (vehicle_identifier vehicle) -> true
+  def self.set_speed_limit: (vehicle_identifier vehicle, Numeric mph) -> true
+  def self.activate_speed_limit: (vehicle_identifier vehicle, String pin) -> true
+  def self.deactivate_speed_limit: (vehicle_identifier vehicle, String pin) -> true
+  def self.clear_speed_limit_pin: (vehicle_identifier vehicle, String pin) -> true
+  def self.schedule_software_update: (vehicle_identifier vehicle, ?offset: Integer) -> true
+  def self.cancel_software_update: (vehicle_identifier vehicle) -> true
+  def self.me: () -> User
+  def self.region: () -> Region
+  def self.vehicles: (?page: Integer?, ?per_page: Integer?) -> Array[Vehicle]
+  def self.vehicle: (vehicle_identifier vehicle) -> Vehicle
+  def self.vehicle_data: (vehicle_identifier vehicle, ?endpoints: (Array[String | Symbol] | String | Symbol)?) -> VehicleData
+  def self.wake_up: (vehicle_identifier vehicle, ?timeout: Numeric?, ?interval: Numeric) -> Vehicle
+  def self.nearby_charging_sites: (vehicle_identifier vehicle) -> NearbyChargingSites
+  def self.mobile_enabled?: (vehicle_identifier vehicle) -> bool
+
+  module Configuration
+    include CertificateOptions
+    include Settings
+    extend Settings::Declaration
+    include URLValidation
+
+    NORTH_AMERICA_HOST: String
+    EUROPE_HOST: String
+    CHINA_HOST: String
+    DEFAULT_HOST: String
+    DEFAULT_AUTHORIZATION_ENDPOINT: String
+    DEFAULT_TOKEN_ENDPOINT: String
+    DEFAULT_USER_AGENT: String
+    ENVIRONMENT: Hash[Symbol, String]
+
+    attr_reader host: String
+    def host=: (String host) -> void
+    attr_accessor audience: String?
+    attr_accessor authorization_endpoint: String
+    attr_accessor token_endpoint: String
+    attr_accessor access_token: String?
+    attr_accessor refresh_token: String?
+    attr_accessor client_id: String?
+    attr_accessor client_secret: String?
+    attr_accessor redirect_uri: String?
+    attr_accessor on_token_refresh: _TokenRefresh?
+    attr_accessor user_agent: String
+    attr_accessor open_timeout: Numeric
+    attr_accessor read_timeout: Numeric
+    attr_accessor write_timeout: Numeric
+    attr_accessor keep_alive_timeout: Numeric
+    attr_accessor debug_output: IO?
+    attr_reader proxy_url: String?
+    def proxy_url=: (String? proxy_url) -> void
+    attr_accessor max_redirects: Integer
+    attr_accessor max_retries: Integer
+    attr_accessor max_retry_delay: Numeric
+    def self.extended: (Configuration base) -> void
+    def default_host: () -> String
+    def configure: () { (self) -> void } -> self
+    def reset: () -> self
+
+    private
+
+    def reset_credentials: () -> void
+    def reset_connection: () -> void
+  end
+
+  class Authenticator
+    AUTHENTICATION_HEADER: String
+
+    def header: (Net::HTTPRequest? request) -> Hash[String, String]
+    def inspect: () -> String
+  end
+
+  class BearerTokenAuthenticator < Authenticator
+    attr_reader access_token: String
+
+    def initialize: (access_token: String) -> void
+    def header: (Net::HTTPRequest? request) -> Hash[String, String]
+  end
+
+  module ClientCredentials
+    @token_mutex: Thread::Mutex
+    @audience: String?
+
+    attr_accessor access_token: String?
+    attr_accessor refresh_token: String?
+    attr_accessor client_id: String?
+    attr_accessor client_secret: String?
+    attr_accessor redirect_uri: String?
+    attr_writer audience: String?
+    attr_accessor authorization_endpoint: String
+    attr_accessor token_endpoint: String
+    attr_accessor on_token_refresh: _TokenRefresh?
+
+    def audience: () -> String
+    def host: () -> String
+
+    private
+
+    def connection: () -> Connection
+    def request_builder: () -> RequestBuilder
+    def redirect_handler: () -> RedirectHandler
+    def retry_handler: () -> RetryHandler
+    def initialize_credentials: (**untyped credentials) -> void
+    def authenticator_for: (String? access_token) -> Authenticator
+    def refreshable?: () -> bool
+    def exclusively: [T] () { () -> T } -> T
+    def renewed_access_token: (String? stale) -> String?
+    def refresh: () -> SimpleOAuth::OAuth2::Token
+    def store_token: (SimpleOAuth::OAuth2::Token token) -> SimpleOAuth::OAuth2::Token
+    def oauth_client: () -> SimpleOAuth::OAuth2::Client
+    def request_token: (SimpleOAuth::OAuth2::Request oauth_request) -> SimpleOAuth::OAuth2::Token
+    def perform_token_request: (SimpleOAuth::OAuth2::Request oauth_request) -> Net::HTTPResponse
+  end
+
+  class Resource
+    include DeepCopy
+    extend Declaration
+
+    module Declaration : Class
+      @attribute_names: Array[Symbol]?
+
+      def attribute: (Symbol name, *(String | Symbol) keys) -> Symbol
+      def predicate: (Symbol name, *(String | Symbol) keys) -> Symbol
+      def time_attribute: (Symbol name, *(String | Symbol) keys) -> Symbol
+      def resource_attribute: (Symbol name, singleton(Resource) resource_class, *(String | Symbol) keys) -> Symbol
+      def resource_list_attribute: (Symbol name, singleton(Resource) resource_class, *(String | Symbol) keys) -> Symbol
+      def attribute_names: () -> Array[Symbol]
+
+      private
+
+      def record_attribute: (Symbol name) -> Symbol
+      def keys_for: (Symbol name, Array[String | Symbol] keys) -> Array[String]
+    end
+
+    self.@inspect_readers: Array[Symbol]?
+    self.@identity_readers: Array[Symbol]?
+
+    attr_reader attributes: Hash[String, untyped]
+
+    def self.list: (Array[Hash[String | Symbol, untyped]] list) -> Array[instance]
+    def self.inspect_with: (*Symbol readers) -> Array[Symbol]
+    def self.inspect_readers: () -> Array[Symbol]
+    def self.identified_by: (*Symbol readers) -> Array[Symbol]
+    def self.identity_readers: () -> Array[Symbol]
+    def initialize: (Hash[String | Symbol, untyped] attributes) -> void
+    def []: (String | Symbol key) -> untyped
+    def deconstruct_keys: (Array[Symbol]? keys) -> Hash[Symbol, untyped]
+    def to_h: () -> Hash[String, untyped]
+    def inspect: () -> String
+    def to_s: () -> String
+    def identity: () -> (Array[untyped] | Hash[String, untyped])
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    def inspect_values: () -> Hash[Symbol, untyped]
+    def value_of: (Array[String] keys) -> untyped
+    def parse_time: (untyped value) -> Time
+  end
+
+  module DeepCopy
+    private
+
+    def deep_freeze: (untyped value) -> untyped
+    def deep_dup: (untyped value) -> untyped
+  end
+
+  class Vehicle < Resource
+    def id: () -> Integer?
+    def vehicle_id: () -> Integer?
+    def vin: () -> String?
+    def display_name: () -> String?
+    def state: () -> String?
+    def access_type: () -> String?
+    def api_version: () -> Integer?
+    def in_service?: () -> bool
+    def online?: () -> bool
+  end
+
+  class VehicleData < Vehicle
+    def charge_state: () -> ChargeState?
+    def climate_state: () -> ClimateState?
+    def drive_state: () -> DriveState?
+    def gui_settings: () -> GUISettings?
+    def vehicle_config: () -> VehicleConfig?
+    def vehicle_state: () -> VehicleState?
+  end
+
+  class ChargeState < Resource
+    def battery_level: () -> Integer?
+    def usable_battery_level: () -> Integer?
+    def battery_range: () -> Float?
+    def charge_limit: () -> Integer?
+    def charging_state: () -> String?
+    def charge_amps: () -> Integer?
+    def charge_rate: () -> Float?
+    def charger_power: () -> Integer?
+    def minutes_to_full_charge: () -> Integer?
+    def charge_port_latch: () -> String?
+    def charge_port_door_open?: () -> bool
+    def timestamp: () -> Time?
+  end
+
+  class ClimateState < Resource
+    def inside_temp: () -> Float?
+    def outside_temp: () -> Float?
+    def driver_temp_setting: () -> Float?
+    def passenger_temp_setting: () -> Float?
+    def fan_status: () -> Integer?
+    def climate_keeper_mode: () -> String?
+    def seat_heater_left: () -> Integer?
+    def seat_heater_right: () -> Integer?
+    def climate_on?: () -> bool
+    def preconditioning?: () -> bool
+    def front_defroster_on?: () -> bool
+    def rear_defroster_on?: () -> bool
+    def timestamp: () -> Time?
+  end
+
+  class DriveState < Resource
+    def latitude: () -> Float?
+    def longitude: () -> Float?
+    def heading: () -> Integer?
+    def speed: () -> Integer?
+    def power: () -> Integer?
+    def shift_state: () -> String?
+    def timestamp: () -> Time?
+  end
+
+  class VehicleState < Resource
+    def car_version: () -> String?
+    def odometer: () -> Float?
+    def vehicle_name: () -> String?
+    def sun_roof_state: () -> String?
+    def locked?: () -> bool
+    def sentry_mode?: () -> bool
+    def valet_mode?: () -> bool
+    def user_present?: () -> bool
+    def remote_start?: () -> bool
+    def timestamp: () -> Time?
+    def frunk_open?: () -> bool
+    def trunk_open?: () -> bool
+
+    private
+
+    def open?: (Integer? value) -> bool
+  end
+
+  class VehicleConfig < Resource
+    def car_type: () -> String?
+    def trim_badging: () -> String?
+    def exterior_color: () -> String?
+    def wheel_type: () -> String?
+    def charge_port_type: () -> String?
+    def sun_roof_installed: () -> Integer?
+    def can_actuate_trunks?: () -> bool
+    def power_liftgate?: () -> bool
+    def right_hand_drive?: () -> bool
+    def timestamp: () -> Time?
+  end
+
+  class GUISettings < Resource
+    def distance_units: () -> String?
+    def temperature_units: () -> String?
+    def charge_rate_units: () -> String?
+    def range_display: () -> String?
+    def twenty_four_hour_time?: () -> bool
+    def timestamp: () -> Time?
+  end
+
+  class User < Resource
+    def email: () -> String?
+    def full_name: () -> String?
+    def profile_image_url: () -> String?
+  end
+
+  class Region < Resource
+    def region: () -> String?
+    def fleet_api_base_url: () -> String?
+  end
+
+  class ChargingSite < Resource
+    def name: () -> String?
+    def type: () -> String?
+    def distance_miles: () -> Float?
+    def available_stalls: () -> Integer?
+    def total_stalls: () -> Integer?
+    def location: () -> Hash[String, Float]?
+    def site_closed?: () -> bool
+  end
+
+  class NearbyChargingSites < Resource
+    def superchargers: () -> Array[ChargingSite]
+    def destination_charging: () -> Array[ChargingSite]
+    def timestamp: () -> Time?
+  end
+
+  interface _Requests
+    def get: (String path, ?Hash[Symbol | String, untyped] params, ?headers: Hash[String, String]) -> String
+    def delete: (String path, ?Hash[Symbol | String, untyped] params, ?headers: Hash[String, String]) -> String
+    def post: (String path, ?request_body body, ?headers: Hash[String, String]) -> String
+    def put: (String path, ?request_body body, ?headers: Hash[String, String]) -> String
+    def patch: (String path, ?request_body body, ?headers: Hash[String, String]) -> String
+  end
+
+  module Identifiers
+    private
+
+    def tag_of: (vehicle_identifier vehicle) -> (String | Integer)?
+  end
+
+  module API : Object, _Requests, ClientCredentials
+    include AlertEndpoints
+    include ChargingEndpoints
+    include ClimateEndpoints
+    include ClosureEndpoints
+    include CommandEndpoints
+    include MediaEndpoints
+    include NavigationEndpoints
+    include OAuthEndpoints
+    include PartnerEndpoints
+    include SecurityEndpoints
+    include SoftwareEndpoints
+    include UserEndpoints
+    include VehicleEndpoints
+  end
+
+  module API::CommandEndpoints : Object, _Requests
+    include Identifiers
+    include JSONParsing
+    include PathEscaping
+
+    def command: (vehicle_identifier vehicle, String | Symbol name, **untyped params) -> true
+
+    private
+
+    def number_of: (Hash[Symbol, Integer] options, Symbol | String name, String kind) -> Integer
+  end
+
+  module API::AlertEndpoints : Object, API::CommandEndpoints
+    def honk_horn: (vehicle_identifier vehicle) -> true
+    def flash_lights: (vehicle_identifier vehicle) -> true
+  end
+
+  module API::ChargingEndpoints : Object, API::CommandEndpoints
+    def open_charge_port: (vehicle_identifier vehicle) -> true
+    def close_charge_port: (vehicle_identifier vehicle) -> true
+    def start_charging: (vehicle_identifier vehicle) -> true
+    def stop_charging: (vehicle_identifier vehicle) -> true
+    def set_charge_limit: (vehicle_identifier vehicle, Integer percent) -> true
+    def set_charging_amps: (vehicle_identifier vehicle, Integer amps) -> true
+    def charge_to_standard_range: (vehicle_identifier vehicle) -> true
+    def charge_to_max_range: (vehicle_identifier vehicle) -> true
+  end
+
+  module API::ClimateEndpoints : Object, API::CommandEndpoints
+    SEATS: Hash[Symbol, Integer]
+    CLIMATE_KEEPER_MODES: Hash[Symbol, Integer]
+
+    def start_climate: (vehicle_identifier vehicle) -> true
+    def stop_climate: (vehicle_identifier vehicle) -> true
+    def set_temperature: (vehicle_identifier vehicle, Numeric driver, ?Numeric passenger) -> true
+    def set_max_defrost: (vehicle_identifier vehicle, on: bool) -> true
+    def set_seat_heater: (vehicle_identifier vehicle, Symbol | String seat, Integer level) -> true
+    def set_seat_cooler: (vehicle_identifier vehicle, Symbol | String seat, Integer level) -> true
+    def set_steering_wheel_heater: (vehicle_identifier vehicle, on: bool) -> true
+    def set_climate_keeper_mode: (vehicle_identifier vehicle, Symbol | String mode) -> true
+    def set_bioweapon_mode: (vehicle_identifier vehicle, on: bool, ?manual_override: bool) -> true
+    def set_cabin_overheat_protection: (vehicle_identifier vehicle, on: bool, ?fan_only: bool) -> true
+  end
+
+  module API::ClosureEndpoints : Object, API::CommandEndpoints
+    def lock_doors: (vehicle_identifier vehicle) -> true
+    def unlock_doors: (vehicle_identifier vehicle) -> true
+    def actuate_trunk: (vehicle_identifier vehicle) -> true
+    def open_frunk: (vehicle_identifier vehicle) -> true
+    def vent_windows: (vehicle_identifier vehicle) -> true
+    def close_windows: (vehicle_identifier vehicle, ?latitude: Numeric, ?longitude: Numeric) -> true
+    def vent_sunroof: (vehicle_identifier vehicle) -> true
+    def close_sunroof: (vehicle_identifier vehicle) -> true
+    def trigger_homelink: (vehicle_identifier vehicle, latitude: Numeric, longitude: Numeric) -> true
+  end
+
+  module API::MediaEndpoints : Object, API::CommandEndpoints
+    def toggle_playback: (vehicle_identifier vehicle) -> true
+    def next_track: (vehicle_identifier vehicle) -> true
+    def previous_track: (vehicle_identifier vehicle) -> true
+    def next_favorite: (vehicle_identifier vehicle) -> true
+    def previous_favorite: (vehicle_identifier vehicle) -> true
+    def volume_up: (vehicle_identifier vehicle) -> true
+    def volume_down: (vehicle_identifier vehicle) -> true
+    def set_volume: (vehicle_identifier vehicle, Numeric volume) -> true
+  end
+
+  module API::NavigationEndpoints : Object, API::CommandEndpoints
+    NAVIGATION_REQUEST_TYPE: String
+    NAVIGATION_REQUEST_TEXT: String
+
+    def navigate_to: (vehicle_identifier vehicle, String destination, ?locale: String) -> true
+    def navigate_to_coordinates: (vehicle_identifier vehicle, Numeric latitude, Numeric longitude, ?order: Integer) -> true
+  end
+
+  module API::OAuthEndpoints : Object, ClientCredentials
+    SCOPES: Array[String]
+    PARTNER_SCOPES: Array[String]
+
+    def authorization_url: (state: String, ?pkce: SimpleOAuth::OAuth2::PKCE?, ?scope: scope, **String? params) -> String
+    def exchange_code: (String code, ?code_verifier: String?) -> SimpleOAuth::OAuth2::Token
+    def refresh_access_token: () -> SimpleOAuth::OAuth2::Token
+    def partner_token: (?scope: scope) -> SimpleOAuth::OAuth2::Token
+
+    private
+
+    def required_redirect_uri: () -> String
+  end
+
+  module API::PartnerEndpoints : Object, _Requests, API::OAuthEndpoints
+    include JSONParsing
+
+    def register_partner: (String domain) -> Hash[String, untyped]
+    def partner_public_key: (String domain) -> String
+
+    private
+
+    def partner_headers: () -> Hash[String, String]
+  end
+
+  module API::SecurityEndpoints : Object, API::CommandEndpoints
+    def set_sentry_mode: (vehicle_identifier vehicle, on: bool) -> true
+    def set_valet_mode: (vehicle_identifier vehicle, on: bool, ?password: String?) -> true
+    def reset_valet_pin: (vehicle_identifier vehicle) -> true
+    def remote_start: (vehicle_identifier vehicle) -> true
+    def set_speed_limit: (vehicle_identifier vehicle, Numeric mph) -> true
+    def activate_speed_limit: (vehicle_identifier vehicle, String pin) -> true
+    def deactivate_speed_limit: (vehicle_identifier vehicle, String pin) -> true
+    def clear_speed_limit_pin: (vehicle_identifier vehicle, String pin) -> true
+  end
+
+  module API::SoftwareEndpoints : Object, API::CommandEndpoints
+    def schedule_software_update: (vehicle_identifier vehicle, ?offset: Integer) -> true
+    def cancel_software_update: (vehicle_identifier vehicle) -> true
+  end
+
+  module API::UserEndpoints : Object, _Requests
+    include JSONParsing
+
+    def me: () -> User
+    def region: () -> Region
+  end
+
+  module API::VehicleEndpoints : Object, _Requests
+    include Identifiers
+    include JSONParsing
+    include PathEscaping
+
+    DEFAULT_WAKE_INTERVAL: Numeric
+
+    def vehicles: (?page: Integer?, ?per_page: Integer?) -> Array[Vehicle]
+    def vehicle: (vehicle_identifier vehicle) -> Vehicle
+    def vehicle_data: (vehicle_identifier vehicle, ?endpoints: (Array[String | Symbol] | String | Symbol)?) -> VehicleData
+    def wake_up: (vehicle_identifier vehicle, ?timeout: Numeric?, ?interval: Numeric) -> Vehicle
+    def nearby_charging_sites: (vehicle_identifier vehicle) -> NearbyChargingSites
+    def mobile_enabled?: (vehicle_identifier vehicle) -> bool
+
+    private
+
+    def vehicle_path: (vehicle_identifier vehicle) -> String
+    def await_online: (Vehicle woken, Numeric deadline, Numeric interval) -> Vehicle
+    def monotonic_time: () -> Float
+  end
+
+  class Client
+    include API
+    extend Forwardable
+    include ClientCredentials
+    include Idempotence
+    include URLValidation
+
+    private def self.def_delegator: (interned accessor, Symbol method, ?Symbol ali) -> void
+    private def self.def_delegators: (interned accessor, *Symbol methods) -> void
+    private def self.def_instance_delegator: (interned accessor, Symbol method, ?Symbol ali) -> void
+    private def self.def_instance_delegators: (interned accessor, *Symbol methods) -> void
+    private def self.delegate: (Hash[Symbol | Array[Symbol], Symbol] hash) -> void
+    private def self.instance_delegate: (Hash[Symbol | Array[Symbol], Symbol] hash) -> void
+
+    @connection: Connection
+    @request_builder: RequestBuilder
+    @redirect_handler: RedirectHandler
+    @retry_handler: RetryHandler
+    @response_parser: ResponseParser
+
+    UNAUTHORIZED_STATUS: String
+
+    attr_reader host: String
+
+    def host=: (String host) -> void
+    def inspect: () -> String
+    def open_timeout: () -> Numeric
+    def read_timeout: () -> Numeric
+    def write_timeout: () -> Numeric
+    def proxy_url: () -> String?
+    def debug_output: () -> IO?
+    def keep_alive_timeout: () -> Numeric
+    def ca_file: () -> String?
+    def debug_output=: (IO? debug_output) -> void
+    def keep_alive_timeout=: (Numeric keep_alive_timeout) -> void
+    def max_redirects: () -> Integer
+    def max_redirects=: (Integer max_redirects) -> void
+    def open_timeout=: (Numeric open_timeout) -> void
+    def read_timeout=: (Numeric read_timeout) -> void
+    def write_timeout=: (Numeric write_timeout) -> void
+    def proxy_url=: (String? proxy_url) -> void
+    def ca_file=: (String? ca_file) -> void
+    def max_retries: () -> Integer
+    def max_retries=: (Integer max_retries) -> void
+    def max_retry_delay: () -> Numeric
+    def max_retry_delay=: (Numeric max_retry_delay) -> void
+    def user_agent: () -> String
+    def user_agent=: (String user_agent) -> void
+
+    def self.new: (?host: String, ?access_token: String?, ?refresh_token: String?, ?client_id: String?, ?client_secret: String?, ?redirect_uri: String?, ?audience: String?, ?authorization_endpoint: String, ?token_endpoint: String, ?on_token_refresh: _TokenRefresh?, ?user_agent: String, ?open_timeout: Numeric, ?read_timeout: Numeric, ?write_timeout: Numeric, ?debug_output: IO?, ?proxy_url: String?, ?keep_alive_timeout: Numeric, ?max_redirects: Integer, ?ca_file: String?, ?max_retries: Integer, ?max_retry_delay: Numeric) -> Client
+                | [T] (?host: String, ?access_token: String?, ?refresh_token: String?, ?client_id: String?, ?client_secret: String?, ?redirect_uri: String?, ?audience: String?, ?authorization_endpoint: String, ?token_endpoint: String, ?on_token_refresh: _TokenRefresh?, ?user_agent: String, ?open_timeout: Numeric, ?read_timeout: Numeric, ?write_timeout: Numeric, ?debug_output: IO?, ?proxy_url: String?, ?keep_alive_timeout: Numeric, ?max_redirects: Integer, ?ca_file: String?, ?max_retries: Integer, ?max_retry_delay: Numeric) { (Client client) -> T } -> T
+    def initialize: (?host: String, ?access_token: String?, ?refresh_token: String?, ?client_id: String?, ?client_secret: String?, ?redirect_uri: String?, ?audience: String?, ?authorization_endpoint: String, ?token_endpoint: String, ?on_token_refresh: _TokenRefresh?, ?user_agent: String, ?open_timeout: Numeric, ?read_timeout: Numeric, ?write_timeout: Numeric, ?debug_output: IO?, ?proxy_url: String?, ?keep_alive_timeout: Numeric, ?max_redirects: Integer, ?ca_file: String?, ?max_retries: Integer, ?max_retry_delay: Numeric) -> void
+    def close: () -> self
+    def get: (String path, ?Hash[Symbol | String, untyped] params, ?headers: Hash[String, String]) -> String
+    def delete: (String path, ?Hash[Symbol | String, untyped] params, ?headers: Hash[String, String]) -> String
+    def post: (String path, ?request_body body, ?headers: Hash[String, String]) -> String
+    def put: (String path, ?request_body body, ?headers: Hash[String, String]) -> String
+    def patch: (String path, ?request_body body, ?headers: Hash[String, String]) -> String
+
+    private
+
+    attr_reader connection: Connection
+    attr_reader request_builder: RequestBuilder
+    attr_reader redirect_handler: RedirectHandler
+    attr_reader retry_handler: RetryHandler
+
+    def execute_request: (Symbol http_method, String path, headers: Hash[String, String], ?params: Hash[Symbol | String, untyped], ?body: request_body?) -> String
+    def perform: (access_token: String?, http_method: Symbol, uri: URI::Generic, params: Hash[Symbol | String, untyped], body: request_body?, headers: Hash[String, String]) -> Net::HTTPResponse
+  end
+
+  class Error < StandardError
+  end
+
+  class HTTPError < Error
+    include RetryAfter
+
+    attr_reader response: Net::HTTPResponse
+    attr_reader code: Integer
+
+    def initialize: (response: Net::HTTPResponse) -> void
+    def retry_after: () -> Integer?
+
+    private
+
+    def error_message: (Net::HTTPResponse response) -> String
+    def described_error: (String body) -> String?
+  end
+
+  class ClientError < HTTPError
+  end
+
+  class ServerError < HTTPError
+  end
+
+  class BadRequest < ClientError
+  end
+
+  class Unauthorized < ClientError
+  end
+
+  class PaymentRequired < ClientError
+  end
+
+  class Forbidden < ClientError
+  end
+
+  class NotFound < ClientError
+  end
+
+  class MethodNotAllowed < ClientError
+  end
+
+  class NotAcceptable < ClientError
+  end
+
+  class RequestTimeout < ClientError
+  end
+
+  class PreconditionFailed < ClientError
+  end
+
+  class MisdirectedRequest < ClientError
+  end
+
+  class UnprocessableContent < ClientError
+  end
+
+  class Locked < ClientError
+  end
+
+  class TooManyRequests < ClientError
+  end
+
+  class UnavailableForLegalReasons < ClientError
+  end
+
+  class InternalServerError < ServerError
+  end
+
+  class BadGateway < ServerError
+  end
+
+  class ServiceUnavailable < ServerError
+  end
+
+  class GatewayTimeout < ServerError
+  end
+
+  class DeviceUnexpectedResponse < ServerError
+  end
+
+  class TooManyRedirects < Error
+  end
+
+  class NetworkError < Error
+    WRAPPED: Array[singleton(IOError) | singleton(Net::HTTPBadResponse) | singleton(Net::ProtocolError) | singleton(OpenSSL::SSL::SSLError) | singleton(SocketError) | singleton(SystemCallError) | singleton(Timeout::Error) | singleton(Zlib::Error)]
+  end
+
+  class InvalidResponse < Error
+    attr_reader body: String
+
+    def initialize: (body: String, ?message: String) -> void
+  end
+
+  class CommandFailed < Error
+    attr_reader command: String
+    attr_reader reason: String
+
+    def initialize: (command: String, reason: String?) -> void
+  end
+
+  class VehicleAsleep < Error
+    attr_reader vehicle: Vehicle
+
+    def initialize: (vehicle: Vehicle) -> void
+  end
+
+  class OAuthError < Error
+    attr_reader code: String?
+    attr_reader description: String?
+    attr_reader status: Integer?
+
+    def initialize: (?code: String?, ?description: String?, ?status: Integer?) -> void
+  end
+
+  module PathEscaping
+    private
+
+    def escape: (untyped value) -> String
+  end
+
+  module JSONParsing
+    SHAPE_ERRORS: Array[singleton(KeyError) | singleton(NoMethodError) | singleton(TypeError)]
+
+    private
+
+    def parse_response: (String body) -> untyped
+                      | [T] (String body) { (untyped response) -> T } -> T
+  end
+
+  class RedactedOutput
+    REDACTION: String
+    CREDENTIALS: Array[Regexp]
+    READ: String
+    READING: String
+    DONE: String
+    CHUNK_END: String
+
+    @output: IO
+    @lines: Array[String]?
+    @body: String?
+    @reading: bool?
+
+    attr_reader output: IO
+
+    def initialize: (IO output) -> void
+    def <<: (String string) -> self
+
+    private
+
+    def hold: (Array[String] lines, String string) -> void
+    def read: (Array[String] lines, String string) -> void
+    def flush: (Array[String] lines) -> void
+    def write: (String string) -> void
+  end
+
+  class ConnectionPool
+    include Idempotence
+
+    @connections: Hash[untyped, untyped]
+    @mutex: Thread::Mutex
+
+    def initialize: () -> void
+    def checkout: (request: Net::HTTPRequest, settings: untyped, keep_alive_timeout: Numeric) { () -> Net::HTTP } -> Net::HTTP
+    def checkin: (request: Net::HTTPRequest, http_client: Net::HTTP, settings: untyped, keep_alive_timeout: Numeric) -> void
+    def discard: (Net::HTTP? http_client) -> void
+    def take: (untyped key, untyped settings) -> Net::HTTP?
+    def store: (untyped key, Net::HTTP http_client, untyped settings) -> bool
+    def close: () -> self
+
+    private
+
+    def delete: (untyped key) -> Net::HTTP?
+    def opened_here?: (Integer? pid) -> bool
+    def keep_alive?: (Net::HTTPRequest request, Numeric keep_alive_timeout) -> bool
+    def pool_key: (Net::HTTPRequest request) -> [String?, String?, Integer?]
+  end
+
+  class Connection
+    include CertificateOptions
+    include Settings
+    extend Settings::Declaration
+    include URLValidation
+
+    @pool: ConnectionPool
+
+    DEFAULT_OPEN_TIMEOUT: Numeric
+    DEFAULT_READ_TIMEOUT: Numeric
+    DEFAULT_WRITE_TIMEOUT: Numeric
+    DEFAULT_KEEP_ALIVE_TIMEOUT: Numeric
+
+    attr_accessor open_timeout: Numeric
+    attr_accessor read_timeout: Numeric
+    attr_accessor write_timeout: Numeric
+    attr_accessor keep_alive_timeout: Numeric
+    attr_accessor debug_output: IO?
+    attr_reader proxy_url: String?
+    attr_reader proxy_uri: URI::Generic?
+
+    def initialize: (?open_timeout: Numeric, ?read_timeout: Numeric, ?write_timeout: Numeric, ?debug_output: IO?, ?proxy_url: String?, ?keep_alive_timeout: Numeric, ?ca_file: String?) -> void
+    def inspect: () -> String
+    def perform: (request: Net::HTTPRequest) -> Net::HTTPResponse
+    def close: () -> self
+    def proxy_url=: (String? proxy_url) -> void
+
+    private
+
+    attr_reader pool: ConnectionPool
+
+    def settings_for: (URI::Generic uri) -> Hash[Symbol, untyped]
+    def send_request: (Net::HTTPRequest request, Hash[Symbol, untyped] opened_with) -> Net::HTTPResponse
+    def request_on: (Net::HTTP http_client, Net::HTTPRequest request) -> Net::HTTPResponse
+    def decode: (String? component) -> String?
+    def build_http_client: (URI::Generic uri, Hash[Symbol, untyped] opened_with) -> Net::HTTP
+    def proxy_arguments_for: (URI::Generic? proxy) -> [String?, Integer?, String?, String?, bool?]
+    def configure_timeouts: (Net::HTTP http_client, Hash[Symbol, untyped] opened_with) -> Net::HTTP
+    def configure_http_client: (Net::HTTP http_client, Hash[Symbol, untyped] opened_with) -> Net::HTTP
+  end
+
+  class RedirectHandler
+    include Settings
+    extend Settings::Declaration
+    include URLValidation
+
+    DEFAULT_MAX_REDIRECTS: Integer
+    METHOD_PRESERVING_CODES: Array[Integer]
+
+    attr_accessor max_redirects: Integer
+    attr_reader connection: Connection
+    attr_reader request_builder: RequestBuilder
+
+    def initialize: (?connection: Connection, ?request_builder: RequestBuilder, ?max_redirects: Integer) -> void
+    def handle: (response: Net::HTTPResponse, request: Net::HTTPRequest, ?authenticator: Authenticator, ?body: request_body?, ?headers: Hash[String, String], ?redirect_count: Integer) -> Net::HTTPResponse
+
+    private
+
+    def follow: (response: Net::HTTPResponse, request: Net::HTTPRequest, uri: URI::HTTP, authenticator: Authenticator, body: request_body?, headers: Hash[String, String], redirect_count: Integer) -> Net::HTTPResponse
+    def replays_body?: (Integer response_code, request_body? body) -> bool
+    def method_preserving?: (Integer response_code) -> bool
+    def build_new_uri: (Net::HTTPResponse response, Net::HTTPRequest request) -> URI::HTTP?
+    def build_request: (request: Net::HTTPRequest, uri: URI::Generic, response_code: Integer, authenticator: Authenticator, body: request_body?, headers: Hash[String, String]) -> Net::HTTPRequest
+  end
+
+  class RequestBuilder
+    DEFAULT_USER_AGENT: String
+    APPLICATION_JSON: String
+    HTTP_METHODS: Hash[Symbol, singleton(Net::HTTP::Get) | singleton(Net::HTTP::Post) | singleton(Net::HTTP::Put) | singleton(Net::HTTP::Patch) | singleton(Net::HTTP::Delete)]
+
+    attr_accessor user_agent: String
+
+    def initialize: (?user_agent: String) -> void
+    def build: (http_method: Symbol, uri: URI::Generic, ?params: Hash[Symbol | String, untyped], ?body: request_body?, ?headers: Hash[String, String], ?authenticator: Authenticator) -> Net::HTTPRequest
+
+    private
+
+    def create_request: (http_method: Symbol, uri: URI::Generic, params: Hash[Symbol | String, untyped]) -> Net::HTTPRequest
+    def add_query_params: (URI::Generic uri, Hash[Symbol | String, untyped] params) -> URI::Generic
+    def add_headers: (request: Net::HTTPRequest, headers: Hash[String, String]) -> void
+    def add_body: (request: Net::HTTPRequest, body: request_body?) -> void
+    def add_authentication: (request: Net::HTTPRequest, authenticator: Authenticator) -> void
+  end
+
+  class ResponseParser
+    ERROR_MAP: Hash[Integer, singleton(HTTPError)]
+    STATUS_CLASS_ERRORS: Hash[Integer, singleton(HTTPError)]
+
+    def parse: (response: Net::HTTPResponse) -> String
+
+    private
+
+    def error: (Net::HTTPResponse response) -> HTTPError
+    def error_class: (Net::HTTPResponse response) -> singleton(HTTPError)
+  end
+
+  module CertificateOptions
+    attr_reader ca_file: String?
+
+    def ca_file=: (String? ca_file) -> void
+
+    private
+
+    def validate_ca_file: (String ca_file) -> String
+  end
+
+  module Settings
+    module Declaration : Module
+      def seconds_setting: (Symbol name) -> Symbol
+      def count_setting: (Symbol name) -> Symbol
+      def environment_setting: (Symbol name, String variable) -> Array[Symbol]
+    end
+
+    def self.included: (Module base) -> void
+
+    private
+
+    def validate_number: (Symbol name, untyped number) -> Numeric
+    def validate_count: (Symbol name, untyped count) -> Integer
+  end
+
+  module URLValidation
+    private
+
+    def validate_host: (String host) -> String
+    def parse_proxy_uri: (String proxy_url) -> URI::HTTP
+    def http_url?: (untyped host) -> bool
+    def build_uri: (String host, String path) -> URI::Generic
+    def same_origin?: (String | URI::Generic url, String | URI::Generic other) -> bool
+    def on_host?: (URI::Generic uri, String | URI::Generic host) -> bool
+    def origin: (String | URI::Generic url) -> [String?, String?, Integer?]
+    def redact: (String? url) -> String?
+  end
+
+  module RetryAfter
+    DELTA_SECONDS: Regexp
+
+    private
+
+    def retry_after_of: (Net::HTTPResponse response) -> Integer?
+  end
+
+  module Idempotence
+    SAFE_METHODS: Array[String]
+
+    private
+
+    def safe?: (String | Symbol http_method) -> bool
+  end
+
+  interface _Random
+    def rand: () -> Float
+  end
+
+  class RetryHandler
+    include RetryAfter
+    include Settings
+    extend Settings::Declaration
+
+    DEFAULT_MAX_RETRIES: Integer
+    DEFAULT_MAX_RETRY_DELAY: Numeric
+    THROTTLED_STATUS: Integer
+    UNANSWERED_STATUSES: Array[Integer]
+
+    attr_accessor max_retries: Integer
+    attr_accessor max_retry_delay: Numeric
+    attr_reader random: _Random
+
+    def initialize: (?max_retries: Integer, ?max_retry_delay: Numeric, ?random: _Random) -> void
+    def handle: (retry_unanswered: bool) { () -> Net::HTTPResponse } -> Net::HTTPResponse
+
+    private
+
+    def attempt: (retries: Integer, retry_unanswered: bool) { () -> Net::HTTPResponse } -> Net::HTTPResponse?
+    def wait: (Numeric delay) -> nil
+    def retry_delay: (response: Net::HTTPResponse, retries: Integer, unanswered: bool) -> Numeric?
+    def network_retry_delay: (retries: Integer, allowed: bool) -> Numeric?
+    def retryable?: (bool allowed, Integer retries) -> bool
+    def capped: (Integer delay) -> Integer?
+    def retry?: (Net::HTTPResponse response, bool unanswered) -> bool
+    def backoff: (Integer retries) -> Numeric
+  end
+end

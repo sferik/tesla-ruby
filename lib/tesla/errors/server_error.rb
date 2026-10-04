@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+require_relative "http_error"
+
+module Tesla
+  # Base class for server errors (5xx HTTP status codes)
+  # @api public
+  class ServerError < HTTPError; end
+end

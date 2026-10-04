@@ -1,0 +1,180 @@
+# frozen_string_literal: true
+
+RSpec.describe Tesla::HTTPError do
+  let(:response) { build_response(Net::HTTPNotFound, "404", "Not Found", "The vehicle could not be found.") }
+
+  it "is an Error" do
+    expect(described_class.new(response:)).to be_a(Tesla::Error)
+  end
+
+  describe "#initialize" do
+    it "uses the response body as the message" do
+      expect(described_class.new(response:).message).to eq("The vehicle could not be found.")
+    end
+
+    it "falls back to the status message when the body is empty" do
+      response = build_response(Net::HTTPNotFound, "404", "Not Found", "")
+
+      expect(described_class.new(response:).message).to eq("Not Found")
+    end
+
+    it "falls back to the status message when the body is nil" do
+      response = build_response(Net::HTTPNotFound, "404", "Not Found", nil)
+
+      expect(described_class.new(response:).message).to eq("Not Found")
+    end
+
+    it "falls back to the status message when the body is an HTML page" do
+      response = build_response(Net::HTTPBadGateway, "502", "Bad Gateway", "<html><body>Bad Gateway</body></html>")
+      response["Content-Type"] = "Text/HTML; charset=utf-8"
+
+      expect(described_class.new(response:).message).to eq("Bad Gateway")
+    end
+
+    it "uses the body of a text response as the message" do
+      response["Content-Type"] = "text/plain; charset=utf-8"
+
+      expect(described_class.new(response:).message).to eq("The vehicle could not be found.")
+    end
+
+    it "uses the error a JSON body describes as the message" do
+      response = build_response(Net::HTTPRequestTimeout, "408", "Request Timeout",
+        '{"response":null,"error":"vehicle unavailable","error_description":""}')
+
+      expect(described_class.new(response:).message).to eq("vehicle unavailable")
+    end
+
+    it "adds the description of the error a JSON body describes to the message" do
+      response = build_response(Net::HTTPUnauthorized, "401", "Unauthorized",
+        '{"error":"invalid bearer token","error_description":"The access token expired"}')
+
+      expect(described_class.new(response:).message).to eq("invalid bearer token: The access token expired")
+    end
+
+    it "uses the description alone when a JSON body describes no error" do
+      response = build_response(Net::HTTPUnauthorized, "401", "Unauthorized", '{"error_description":"The access token expired"}')
+
+      expect(described_class.new(response:).message).to eq("The access token expired")
+    end
+
+    it "reads an error that is not a String as one" do
+      response = build_response(Net::HTTPBadRequest, "400", "Bad Request", '{"error":{"code":7}}')
+
+      expect(described_class.new(response:).message).to eq({"code" => 7}.to_s)
+    end
+
+    it "uses a JSON body that describes no error as the message" do
+      response = build_response(Net::HTTPBadRequest, "400", "Bad Request", '{"response":null}')
+
+      expect(described_class.new(response:).message).to eq('{"response":null}')
+    end
+
+    it "uses a JSON body that is not an object as the message" do
+      response = build_response(Net::HTTPBadRequest, "400", "Bad Request", '["error"]')
+
+      expect(described_class.new(response:).message).to eq('["error"]')
+    end
+
+    it "exposes the response" do
+      expect(described_class.new(response:).response).to equal(response)
+    end
+
+    it "exposes the status code" do
+      expect(described_class.new(response:).code).to eq(404)
+    end
+  end
+
+  describe "#retry_after" do
+    let(:response) { build_response(Net::HTTPTooManyRequests, "429", "Too Many Requests", "") }
+    let(:date) { "Wed, 21 Oct 2015 07:28:00 GMT" }
+
+    it "is nil without a Retry-After header" do
+      expect(described_class.new(response:).retry_after).to be_nil
+    end
+
+    it "returns the seconds of a Retry-After header" do
+      response["Retry-After"] = "120"
+
+      expect(described_class.new(response:).retry_after).to eq(120)
+    end
+
+    it "reads the seconds of a Retry-After header in decimal, whatever digit they start with" do
+      response["Retry-After"] = "010"
+
+      expect(described_class.new(response:).retry_after).to eq(10)
+    end
+
+    {
+      "hexadecimal" => "0x1E",
+      "binary" => "0b11",
+      "written with an underscore" => "1_0",
+      "preceded by anything else" => "in 5",
+      "followed by anything else" => "5 seconds",
+      "empty" => ""
+    }.each do |description, value|
+      it "is nil for a Retry-After header of seconds #{description}" do
+        response["Retry-After"] = value
+
+        expect(described_class.new(response:).retry_after).to be_nil
+      end
+    end
+
+    it "returns zero for a negative number of seconds" do
+      response["Retry-After"] = "-5"
+
+      expect(described_class.new(response:).retry_after).to eq(0)
+    end
+
+    it "returns the seconds until the HTTP date of a Retry-After header, rounded up" do
+      response["Retry-After"] = date
+      allow(Time).to receive(:now).and_return(Time.httpdate(date) - 1.2)
+
+      expect(described_class.new(response:).retry_after).to eq(2)
+    end
+
+    it "returns zero for an HTTP date that has passed" do
+      response["Retry-After"] = date
+
+      expect(described_class.new(response:).retry_after).to eq(0)
+    end
+
+    it "is nil for a Retry-After header that is neither seconds nor an HTTP date" do
+      response["Retry-After"] = "soon"
+
+      expect(described_class.new(response:).retry_after).to be_nil
+    end
+  end
+
+  {
+    Tesla::ClientError => described_class,
+    Tesla::ServerError => described_class,
+    Tesla::BadRequest => Tesla::ClientError,
+    Tesla::Unauthorized => Tesla::ClientError,
+    Tesla::PaymentRequired => Tesla::ClientError,
+    Tesla::Forbidden => Tesla::ClientError,
+    Tesla::NotFound => Tesla::ClientError,
+    Tesla::MethodNotAllowed => Tesla::ClientError,
+    Tesla::NotAcceptable => Tesla::ClientError,
+    Tesla::RequestTimeout => Tesla::ClientError,
+    Tesla::PreconditionFailed => Tesla::ClientError,
+    Tesla::MisdirectedRequest => Tesla::ClientError,
+    Tesla::UnprocessableContent => Tesla::ClientError,
+    Tesla::Locked => Tesla::ClientError,
+    Tesla::TooManyRequests => Tesla::ClientError,
+    Tesla::UnavailableForLegalReasons => Tesla::ClientError,
+    Tesla::InternalServerError => Tesla::ServerError,
+    Tesla::BadGateway => Tesla::ServerError,
+    Tesla::ServiceUnavailable => Tesla::ServerError,
+    Tesla::GatewayTimeout => Tesla::ServerError,
+    Tesla::DeviceUnexpectedResponse => Tesla::ServerError,
+    Tesla::NetworkError => Tesla::Error,
+    Tesla::InvalidResponse => Tesla::Error,
+    Tesla::CommandFailed => Tesla::Error,
+    Tesla::VehicleAsleep => Tesla::Error,
+    Tesla::OAuthError => Tesla::Error
+  }.each do |error_class, parent_class|
+    it "defines #{error_class} as a #{parent_class}" do
+      expect(error_class.superclass).to eq(parent_class)
+    end
+  end
+end
