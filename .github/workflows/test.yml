@@ -1,0 +1,43 @@
+name: tests
+# A tag is checked by push_gem.yml, which calls this workflow before it pushes the gem
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        ruby: ["3.4", "4.0", "jruby-10.1", "head", "jruby-head"]
+    name: ${{ matrix.os }} / ${{ matrix.ruby }}
+    runs-on: ${{ matrix.os }}
+    # The Rubies that have not been released yet are tested to hear about what is coming rather than to hold anything
+    # up: a failure on one of them leaves the workflow passing, so that it neither fails the build nor keeps
+    # push_gem.yml from pushing the gem, and is reported by the last step instead
+    continue-on-error: ${{ endsWith(matrix.ruby, 'head') }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+      with:
+        ruby-version: ${{ matrix.ruby }}
+        bundler-cache: true
+    - run: bundle exec rake spec
+    # A job that is allowed to fail is otherwise easy to miss, since the workflow it belongs to passes: the warning
+    # is shown on the summary of the run and on the pull request, and the summary says which Ruby it was
+    - name: Warn that an unreleased Ruby failed
+      if: failure() && endsWith(matrix.ruby, 'head')
+      shell: bash
+      env:
+        RUBY: ${{ matrix.ruby }}
+        OS: ${{ matrix.os }}
+      run: |
+        echo "::warning title=Upcoming Ruby failure::The build failed on $RUBY on $OS, which does not fail the workflow"
+        echo "### :warning: The build failed on $RUBY on $OS" >> "$GITHUB_STEP_SUMMARY"
+        echo "This Ruby has not been released, so the failure does not fail the workflow or hold up a release." >> "$GITHUB_STEP_SUMMARY"

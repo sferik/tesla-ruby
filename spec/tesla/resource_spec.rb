@@ -1,0 +1,705 @@
+# frozen_string_literal: true
+
+RSpec.describe Tesla::Resource do
+  let(:resource_class) do
+    Class.new(described_class) do
+      attribute :name
+      attribute :tag, "id_s"
+      attribute :sha, "sha", "sha256"
+      predicate :yanked
+      predicate :indexed, "is_indexed"
+      predicate :removed, "removed", "removed_at"
+      time_attribute :created_at
+      time_attribute :updated_at, "last_updated"
+      time_attribute :built_at, "built_at", "constructed_at"
+      inspect_with :name, :yanked?
+    end
+  end
+  let(:attributes) { {"name" => "rails", "id_s" => "TAG", "yanked" => true, "created_at" => 1_688_072_244_000} }
+  let(:resource) { resource_class.new(attributes) }
+
+  describe ".list" do
+    it "builds a resource for each attribute hash" do
+      list = resource_class.list([attributes, {"name" => "thor"}])
+
+      expect(list.map(&:name)).to eq(%w[rails thor])
+    end
+
+    it "builds instances of the class" do
+      expect(resource_class.list([attributes])).to all(be_an_instance_of(resource_class))
+    end
+
+    it "returns an empty array for an empty list" do
+      expect(resource_class.list([])).to eq([])
+    end
+  end
+
+  describe ".attribute" do
+    it "defines a reader for the attribute" do
+      expect(resource.name).to eq("rails")
+    end
+
+    it "records the reader in attribute_names" do
+      klass = Class.new(described_class) { attribute :name }
+
+      expect(klass.attribute_names).to eq([:name])
+    end
+
+    it "reads a custom key" do
+      expect(resource.tag).to eq("TAG")
+    end
+
+    it "returns nil when the attribute is missing" do
+      expect(resource_class.new({}).name).to be_nil
+    end
+
+    it "reads the first of several keys the response contains" do
+      expect(resource_class.new("sha256" => "abc").sha).to eq("abc")
+    end
+
+    it "prefers the earlier key when the response contains both" do
+      expect(resource_class.new("sha" => "abc", "sha256" => "def").sha).to eq("abc")
+    end
+
+    it "prefers a key the response contains over a later one, even when its value is nil" do
+      expect(resource_class.new("sha" => nil, "sha256" => "def").sha).to be_nil
+    end
+
+    it "returns nil when the response contains none of the keys" do
+      expect(resource_class.new({}).sha).to be_nil
+    end
+
+    it "returns the name of the reader" do
+      expect(resource_class.attribute(:version)).to eq(:version)
+    end
+  end
+
+  describe ".predicate" do
+    it "records the predicate in attribute_names" do
+      klass = Class.new(described_class) { predicate :yanked }
+
+      expect(klass.attribute_names).to eq([:yanked?])
+    end
+
+    it "defines a predicate for the attribute" do
+      expect(resource.yanked?).to be(true)
+    end
+
+    it "returns false when the attribute is false" do
+      expect(resource_class.new("yanked" => false).yanked?).to be(false)
+    end
+
+    it "returns false when the attribute is missing" do
+      expect(resource_class.new({}).yanked?).to be(false)
+    end
+
+    it "returns true for any truthy value" do
+      expect(resource_class.new("yanked" => "yes").yanked?).to be(true)
+    end
+
+    it "reads a custom key" do
+      expect(resource_class.new("is_indexed" => true).indexed?).to be(true)
+    end
+
+    it "reads the first of several keys the response contains" do
+      expect(resource_class.new("removed_at" => "2023-06-29T20:57:24Z").removed?).to be(true)
+    end
+
+    it "returns the name of the reader" do
+      expect(resource_class.predicate(:prerelease)).to eq(:prerelease?)
+    end
+  end
+
+  describe ".time_attribute" do
+    it "records the reader in attribute_names" do
+      klass = Class.new(described_class) { time_attribute :created_at }
+
+      expect(klass.attribute_names).to eq([:created_at])
+    end
+
+    it "reads the attribute, which is the milliseconds since the Unix epoch, as a time" do
+      expect(resource.created_at).to eq(Time.utc(2023, 6, 29, 20, 57, 24))
+    end
+
+    it "reads the milliseconds of the attribute" do
+      expect(resource_class.new("created_at" => 1_688_072_244_515).created_at.usec).to eq(515_000)
+    end
+
+    it "reads the time in UTC" do
+      expect(resource.created_at).to be_utc
+    end
+
+    it "returns nil when the attribute is missing" do
+      expect(resource_class.new({}).created_at).to be_nil
+    end
+
+    it "reads a custom key" do
+      expect(resource_class.new("last_updated" => 1_687_996_800_000).updated_at).to eq(Time.utc(2023, 6, 29))
+    end
+
+    it "reads the first of several keys the response contains" do
+      expect(resource_class.new("constructed_at" => 1_687_996_800_000).built_at).to eq(Time.utc(2023, 6, 29))
+    end
+
+    it "returns the name of the reader" do
+      expect(resource_class.time_attribute(:pushed_at)).to eq(:pushed_at)
+    end
+
+    it "raises InvalidResponse for a value that is not a number" do
+      expect { resource_class.new("created_at" => "soon").created_at }
+        .to raise_error(Tesla::InvalidResponse, '"soon" is not a timestamp')
+    end
+
+    it "attaches the value to the error" do
+      expect { resource_class.new("created_at" => [1]).created_at }
+        .to raise_error(having_attributes(body: "[1]"))
+    end
+
+    it "raises InvalidResponse for a value that cannot be read as a number" do
+      expect { resource_class.new("created_at" => [1]).created_at }
+        .to raise_error(Tesla::InvalidResponse, "[1] is not a timestamp")
+    end
+
+    it "keeps the conversion error as the cause" do
+      expect { resource_class.new("created_at" => "soon").created_at }
+        .to raise_error(having_attributes(cause: an_instance_of(ArgumentError)))
+    end
+  end
+
+  describe ".resource_attribute" do
+    let(:nested_class) { Class.new(described_class) { attribute :name } }
+    let(:resource_class) do
+      nested = nested_class
+      Class.new(described_class) do
+        resource_attribute :owner, nested
+        resource_attribute :driver, nested, "driver", "chauffeur"
+      end
+    end
+
+    it "records the reader in attribute_names" do
+      expect(resource_class.attribute_names).to eq(%i[owner driver])
+    end
+
+    it "wraps the nested object in the resource" do
+      expect(resource_class.new("owner" => {"name" => "Nikola"}).owner).to eq(nested_class.new("name" => "Nikola"))
+    end
+
+    it "returns nil when the attribute is missing" do
+      expect(resource_class.new({}).owner).to be_nil
+    end
+
+    it "reads the first of several keys the response contains" do
+      expect(resource_class.new("chauffeur" => {"name" => "Marie"}).driver.name).to eq("Marie")
+    end
+
+    it "returns the name of the reader" do
+      expect(resource_class.resource_attribute(:passenger, nested_class)).to eq(:passenger)
+    end
+  end
+
+  describe ".resource_list_attribute" do
+    let(:nested_class) { Class.new(described_class) { attribute :name } }
+    let(:resource_class) do
+      nested = nested_class
+      Class.new(described_class) do
+        resource_list_attribute :owners, nested
+        resource_list_attribute :drivers, nested, "drivers", "chauffeurs"
+      end
+    end
+
+    it "records the reader in attribute_names" do
+      expect(resource_class.attribute_names).to eq(%i[owners drivers])
+    end
+
+    it "wraps each of the nested objects in the resource" do
+      expect(resource_class.new("owners" => [{"name" => "Nikola"}, {"name" => "Marie"}]).owners)
+        .to eq([nested_class.new("name" => "Nikola"), nested_class.new("name" => "Marie")])
+    end
+
+    it "returns an empty list when the attribute is missing" do
+      expect(resource_class.new({}).owners).to eq([])
+    end
+
+    it "reads the first of several keys the response contains" do
+      expect(resource_class.new("chauffeurs" => [{"name" => "Marie"}]).drivers.map(&:name)).to eq(["Marie"])
+    end
+
+    it "returns the name of the reader" do
+      expect(resource_class.resource_list_attribute(:passengers, nested_class)).to eq(:passengers)
+    end
+  end
+
+  describe "#initialize" do
+    it "stores the attributes" do
+      expect(resource.attributes).to eq(attributes)
+    end
+
+    it "leaves the hash it was given mutable" do
+      raw = {"metadata" => {"changelog_uri" => +"https://example.com"}, "licenses" => [+"MIT"]}
+      resource_class.new(raw)
+
+      expect([raw, raw["metadata"], raw["licenses"], raw["licenses"].first].map(&:frozen?)).to all(be(false))
+    end
+
+    it "freezes the attributes" do
+      expect(resource.attributes).to be_frozen
+    end
+
+    it "freezes nested hashes and their values" do
+      resource = resource_class.new("metadata" => {"changelog_uri" => +"https://example.com"})
+
+      expect([resource[:metadata], resource[:metadata]["changelog_uri"]]).to all(be_frozen)
+    end
+
+    it "copies nested hashes entry by entry" do
+      resource = resource_class.new("metadata" => {"changelog_uri" => +"https://example.com"})
+
+      expect(resource[:metadata]).to eq("changelog_uri" => "https://example.com")
+    end
+
+    it "freezes nested arrays and their elements" do
+      resource = resource_class.new("licenses" => [+"MIT"])
+
+      expect([resource[:licenses], resource[:licenses].first]).to all(be_frozen)
+    end
+
+    it "copies nested arrays element by element" do
+      expect(resource_class.new("licenses" => [+"MIT"])[:licenses]).to eq(["MIT"])
+    end
+
+    it "freezes strings" do
+      expect(resource_class.new("name" => +"rails").name).to be_frozen
+    end
+
+    it "converts symbol keys to strings" do
+      expect(resource_class.new(name: "rails").name).to eq("rails")
+    end
+
+    it "converts the symbol keys of nested hashes to strings" do
+      resource = resource_class.new(metadata: {changelog_uri: "https://example.com"})
+
+      expect(resource[:metadata]).to eq("changelog_uri" => "https://example.com")
+    end
+  end
+
+  describe ".attribute_names" do
+    it "lists the declared readers in order" do
+      expect(resource_class.attribute_names)
+        .to eq(%i[name tag sha yanked? indexed? removed? created_at updated_at built_at])
+    end
+
+    it "is empty for a class that declares nothing" do
+      expect(Class.new(described_class).attribute_names).to eq([])
+    end
+
+    it "keeps record_attribute private" do
+      expect(resource_class).not_to respond_to(:record_attribute)
+    end
+
+    it "does not share names between classes" do
+      Class.new(described_class) { attribute :other }
+
+      expect(resource_class.attribute_names).not_to include(:other)
+    end
+
+    it "is inherited by a subclass that declares nothing" do
+      expect(Class.new(resource_class).attribute_names).to eq(resource_class.attribute_names)
+    end
+
+    it "appends the names a subclass declares to the inherited ones" do
+      declaring = Class.new(resource_class) { attribute :number }
+
+      expect(declaring.attribute_names).to eq([*resource_class.attribute_names, :number])
+    end
+
+    it "keeps the names a subclass declares out of its superclass" do
+      Class.new(resource_class) { attribute :number }
+
+      expect(resource_class.attribute_names).not_to include(:number)
+    end
+  end
+
+  describe "a subclass of a resource" do
+    let(:subclass) { Class.new(resource_class) }
+
+    it "matches a pattern by the inherited readers" do
+      matched = case subclass.new(attributes)
+      in {name:, yanked?: true} then name
+      end
+
+      expect(matched).to eq("rails")
+    end
+
+    it "compares by the inherited identity" do
+      identified = Class.new(Class.new(resource_class) { identified_by :name })
+
+      expect(identified.new(attributes)).to eq(identified.new("name" => "rails"))
+    end
+  end
+
+  describe "#deconstruct_keys" do
+    it "reads every declared attribute for nil" do
+      expect(resource.deconstruct_keys(nil)).to eq(name: "rails", tag: "TAG", sha: nil, yanked?: true, indexed?: false,
+        removed?: false, created_at: Time.utc(2023, 6, 29, 20, 57, 24), updated_at: nil, built_at: nil)
+    end
+
+    it "reads only the attributes a pattern asks for" do
+      expect(resource.deconstruct_keys(%i[name yanked?])).to eq(name: "rails", yanked?: true)
+    end
+
+    it "leaves out names it does not declare" do
+      expect(resource.deconstruct_keys(%i[name other])).to eq(name: "rails")
+    end
+
+    it "matches a case/in pattern" do
+      matched = case resource
+      in {name: "rails", created_at: Time => created_at} then created_at
+      end
+
+      expect(matched).to eq(Time.utc(2023, 6, 29, 20, 57, 24))
+    end
+
+    it "does not match a pattern with another value" do
+      matched = (resource in {name: "thor"})
+
+      expect(matched).to be(false)
+    end
+
+    context "with an attribute its reader cannot read" do
+      let(:attributes) { {"name" => "rails", "created_at" => "not a timestamp"} }
+
+      it "leaves the attribute out rather than raising" do
+        expect(resource.deconstruct_keys(nil)).not_to include(:created_at)
+      end
+
+      it "reads the attributes it can read" do
+        expect(resource.deconstruct_keys(nil)).to include(name: "rails")
+      end
+
+      it "leaves out an attribute a pattern asks for by name" do
+        expect(resource.deconstruct_keys([:created_at])).to eq({})
+      end
+
+      it "does not match a pattern that asks for the attribute" do
+        matched = (resource in {created_at: Time})
+
+        expect(matched).to be(false)
+      end
+
+      it "matches a pattern that asks for the rest of the attributes" do
+        matched = case resource
+        in {name:, **rest} then [name, rest.key?(:created_at)]
+        end
+
+        expect(matched).to eq(["rails", false])
+      end
+
+      it "still raises when the reader is called" do
+        expect { resource.created_at }.to raise_error(Tesla::InvalidResponse, '"not a timestamp" is not a timestamp')
+      end
+    end
+  end
+
+  describe "#[]" do
+    it "reads a raw attribute by string key" do
+      expect(resource["id_s"]).to eq("TAG")
+    end
+
+    it "reads a raw attribute by symbol key" do
+      expect(resource[:id_s]).to eq("TAG")
+    end
+
+    it "returns nil for a missing key" do
+      expect(resource["missing"]).to be_nil
+    end
+  end
+
+  describe ".keys_for" do
+    it "is private, since it supports the declarations rather than being one of them" do
+      expect { resource_class.keys_for(:name, []) }.to raise_error(NoMethodError, /private method/)
+    end
+
+    it "reads the key a declaration names" do
+      klass = Class.new(described_class) { attribute :sha, "sha256" }
+
+      expect(klass.new("sha256" => "abc").sha).to eq("abc")
+    end
+
+    it "reads the name of the reader when a declaration names no key" do
+      klass = Class.new(described_class) { attribute :name }
+
+      expect(klass.new("name" => "rails").name).to eq("rails")
+    end
+
+    it "reads a key a declaration names as a symbol" do
+      klass = Class.new(described_class) { attribute :sha, :sha256 }
+
+      expect(klass.new("sha256" => "abc").sha).to eq("abc")
+    end
+
+    it "reads the keys a declaration names in the order it names them" do
+      klass = Class.new(described_class) { attribute :sha, "sha", "sha256" }
+
+      expect(klass.new("sha" => "abc", "sha256" => "def").sha).to eq("abc")
+    end
+  end
+
+  describe ".inspect_with" do
+    it "declares the readers shown by inspect" do
+      expect(resource_class.inspect_readers).to eq(%i[name yanked?])
+    end
+
+    it "returns the readers" do
+      expect(Class.new(described_class).inspect_with(:name, :number)).to eq(%i[name number])
+    end
+  end
+
+  describe ".inspect_readers" do
+    it "returns the declared readers" do
+      expect(resource_class.inspect_readers).to eq(%i[name yanked?])
+    end
+
+    it "defaults to no readers" do
+      expect(Class.new(described_class).inspect_readers).to eq([])
+    end
+
+    it "is inherited by a subclass that declares nothing" do
+      expect(Class.new(resource_class).inspect_readers).to eq(%i[name yanked?])
+    end
+  end
+
+  describe "#inspect" do
+    it "shows the class and the declared readers" do
+      stub_const("Tesla::TestResource", resource_class)
+
+      expect(resource.inspect).to eq('#<Tesla::TestResource name="rails" yanked?=true>')
+    end
+
+    it "shows only the class without declared readers" do
+      stub_const("Tesla::TestResource", Class.new(described_class))
+
+      expect(Tesla::TestResource.new(attributes).inspect).to eq("#<Tesla::TestResource>")
+    end
+
+    it "shows nil for missing attributes" do
+      stub_const("Tesla::TestResource", resource_class)
+
+      expect(resource_class.new({}).inspect).to eq("#<Tesla::TestResource name=nil yanked?=false>")
+    end
+  end
+
+  describe "#to_s" do
+    it "is the summary the resource inspects as" do
+      stub_const("Tesla::TestResource", resource_class)
+
+      expect(resource.to_s).to eq('#<Tesla::TestResource name="rails" yanked?=true>')
+    end
+
+    it "is what a resource written into a String reads as" do
+      stub_const("Tesla::TestResource", resource_class)
+
+      expect("fetched #{resource}").to eq('fetched #<Tesla::TestResource name="rails" yanked?=true>')
+    end
+  end
+
+  describe ".identified_by" do
+    let(:identified_class) { Class.new(resource_class) { identified_by :name } }
+
+    it "declares the readers that identify the resource" do
+      expect(identified_class.identity_readers).to eq(%i[name])
+    end
+
+    it "returns the readers" do
+      expect(Class.new(described_class).identified_by(:name, :number)).to eq(%i[name number])
+    end
+  end
+
+  describe ".identity_readers" do
+    it "returns the declared readers" do
+      expect(Class.new(resource_class) { identified_by :name, :yanked? }.identity_readers).to eq(%i[name yanked?])
+    end
+
+    it "defaults to no readers" do
+      expect(resource_class.identity_readers).to eq([])
+    end
+
+    it "is inherited by a subclass that declares nothing" do
+      identified = Class.new(resource_class) { identified_by :name }
+
+      expect(Class.new(identified).identity_readers).to eq(%i[name])
+    end
+  end
+
+  describe "#identity" do
+    it "is the attributes without declared readers" do
+      expect(resource.send(:identity)).to eq(attributes)
+    end
+
+    it "is the values of the declared readers" do
+      identified_class = Class.new(resource_class) { identified_by :name, :yanked? }
+
+      expect(identified_class.new(attributes).send(:identity)).to eq(["rails", true])
+    end
+
+    it "is protected, so that it answers to the resource it is compared with rather than to a caller" do
+      expect { resource.identity }.to raise_error(NoMethodError, /protected method/)
+    end
+  end
+
+  describe "#to_h" do
+    it "returns the attributes" do
+      expect(resource.to_h).to eq(attributes)
+    end
+
+    it "returns a hash the caller can change" do
+      expect { resource.to_h["fetched_at"] = "now" }.not_to raise_error
+    end
+
+    it "leaves the attributes of the resource as they were" do
+      resource.to_h["name"] = "thor"
+
+      expect(resource.name).to eq("rails")
+    end
+
+    it "returns values the caller can change" do
+      expect(resource.to_h["name"]).not_to be_frozen
+    end
+
+    it "copies the values nested in a hash" do
+      nested = resource_class.new("metadata" => {"homepage_uri" => "https://rubyonrails.org"}).to_h["metadata"]
+
+      expect(nested).not_to be_frozen
+    end
+
+    it "copies the values nested in a hash within a hash" do
+      nested = resource_class.new("metadata" => {"funding" => {"uri" => "https://rubyonrails.org"}}).to_h["metadata"]
+
+      expect(nested["funding"]).not_to be_frozen
+    end
+
+    it "copies the values nested in an array" do
+      nested = resource_class.new("licenses" => ["MIT"]).to_h["licenses"]
+
+      expect(nested).not_to be_frozen
+    end
+
+    it "copies the values nested within an array" do
+      nested = resource_class.new("licenses" => ["MIT"]).to_h["licenses"]
+
+      expect(nested.first).not_to be_frozen
+    end
+
+    it "leaves the attributes of the resource frozen" do
+      nested = resource_class.new("metadata" => {"a" => "b"})
+      nested.to_h["metadata"]["a"] = "c"
+
+      expect(nested.attributes["metadata"]).to eq({"a" => "b"}).and(be_frozen)
+    end
+
+    it "returns the values a copy cannot be made of as they are" do
+      expect(resource_class.new("downloads" => 1).to_h["downloads"]).to eq(1)
+    end
+  end
+
+  describe "#==" do
+    it "is true for the same class and attributes" do
+      expect(resource).to eq(resource_class.new(attributes.dup))
+    end
+
+    it "is false for different attributes" do
+      expect(resource).not_to eq(resource_class.new("name" => "thor"))
+    end
+
+    it "compares attribute values with ==" do
+      expect(resource_class.new("downloads" => 1)).to eq(resource_class.new("downloads" => 1.0))
+    end
+
+    it "is false for a different class with the same attributes" do
+      expect(resource).not_to eq(Class.new(described_class).new(attributes))
+    end
+
+    it "is false for a subclass with the same attributes" do
+      expect(resource).not_to eq(Class.new(resource_class).new(attributes))
+    end
+
+    it "is false for a non-resource" do
+      expect(resource).not_to eq(attributes)
+    end
+
+    context "with an identity" do
+      let(:identified_class) { Class.new(resource_class) { identified_by :name } }
+
+      it "is true when the identity matches despite other attributes" do
+        expect(identified_class.new("name" => "rails", "yanked" => true)).to eq(identified_class.new("name" => "rails"))
+      end
+
+      it "is false when the identity differs" do
+        expect(identified_class.new("name" => "rails")).not_to eq(identified_class.new("name" => "thor"))
+      end
+    end
+  end
+
+  describe "#eql?" do
+    it "is true for the same class and attributes" do
+      expect(resource).to eql(resource_class.new(attributes.dup))
+    end
+
+    it "is false for different attributes" do
+      expect(resource).not_to eql(resource_class.new({}))
+    end
+
+    it "compares attribute values with eql?" do
+      expect(resource_class.new("downloads" => 1)).not_to eql(resource_class.new("downloads" => 1.0))
+    end
+
+    it "is false for a different class with the same attributes" do
+      expect(resource).not_to eql(Class.new(described_class).new(attributes))
+    end
+
+    it "is false for a subclass with the same attributes" do
+      expect(resource).not_to eql(Class.new(resource_class).new(attributes))
+    end
+
+    it "is false for a non-resource" do
+      expect(resource).not_to eql(attributes)
+    end
+
+    it "is true when the identity matches despite other attributes" do
+      identified_class = Class.new(resource_class) { identified_by :name }
+
+      expect(identified_class.new("name" => "rails", "yanked" => true)).to eql(identified_class.new("name" => "rails"))
+    end
+  end
+
+  describe "#hash" do
+    it "is equal for equal resources" do
+      expect(resource.hash).to eq(resource_class.new(attributes.dup).hash)
+    end
+
+    it "differs for different attributes" do
+      expect(resource.hash).not_to eq(resource_class.new({}).hash)
+    end
+
+    it "differs for attribute values that are == but not eql?" do
+      expect(resource_class.new("downloads" => 1).hash).not_to eq(resource_class.new("downloads" => 1.0).hash)
+    end
+
+    it "keeps == but not eql? resources distinct in a set" do
+      expect(Set[resource_class.new("downloads" => 1), resource_class.new("downloads" => 1.0)].size).to eq(2)
+    end
+
+    it "differs for a different class with the same attributes" do
+      expect(resource.hash).not_to eq(Class.new(described_class).new(attributes).hash)
+    end
+
+    it "deduplicates equal resources in a set" do
+      expect(Set[resource, resource_class.new(attributes.dup)].size).to eq(1)
+    end
+
+    it "is equal for resources with the same identity" do
+      identified_class = Class.new(resource_class) { identified_by :name }
+
+      expect(identified_class.new("name" => "rails", "yanked" => true).hash).to eq(identified_class.new("name" => "rails").hash)
+    end
+  end
+end
