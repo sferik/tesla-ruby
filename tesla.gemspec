@@ -34,5 +34,5 @@ Gem::Specification.new do |spec|
   ], base: __dir__)
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "simple_oauth", "1.0.1"
+  spec.add_dependency "simple_oauth", "1.0.4"
 end
